@@ -67,6 +67,53 @@ st.markdown("""
         margin-bottom: 1.5rem;
         max-width: 960px;
     }
+    .dist-box {
+        background: #f8f4ff;
+        border: 1px solid #d8c4f5;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-top: 8px;
+        margin-bottom: 4px;
+    }
+    .dist-box-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7b2fbe;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 8px;
+    }
+    .dist-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+        gap: 8px;
+    }
+    .dist-label {
+        font-size: 11px;
+        color: #444;
+        min-width: 90px;
+        font-weight: 500;
+    }
+    .dist-bar-wrap {
+        flex: 1;
+        background: #e9d9ff;
+        border-radius: 4px;
+        height: 10px;
+        overflow: hidden;
+    }
+    .dist-bar {
+        height: 10px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #9b59b6, #7b2fbe);
+    }
+    .dist-pct {
+        font-size: 11px;
+        font-weight: 600;
+        color: #5a1a9b;
+        min-width: 42px;
+        text-align: right;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -88,7 +135,6 @@ def load_data():
     scaled = pd.read_csv("data/rfm_scaled.csv")
     pca_df = pd.read_csv("data/rfm_pca.csv")
 
-
     km = KMeans(n_clusters=3, random_state=42, n_init=10)
     km.fit(scaled)
     rfm["cluster_raw"] = km.labels_
@@ -97,10 +143,8 @@ def load_data():
     rfm["PC1"] = pca_df["PC1"]
     rfm["PC2"] = pca_df["PC2"]
 
-
     dbscan = DBSCAN(eps=0.8, min_samples=5)
     rfm["cluster_db"] = dbscan.fit_predict(scaled)
-
 
     mask         = rfm["cluster_db"] != -1
     rfm_clean    = rfm[mask].copy()
@@ -111,7 +155,6 @@ def load_data():
     rfm_clean["cluster_raw"] = km_clean.labels_
     rfm_clean["cluster"]     = rfm_clean["cluster_raw"].map(mapping)
 
-   
     pca_model = PCA(n_components=2)
     rfm_pca_clean = pd.DataFrame(
         pca_model.fit_transform(scaled_clean),
@@ -119,7 +162,6 @@ def load_data():
         index=rfm_clean.index,
     )
     rfm_pca_clean["cluster"] = rfm_clean["cluster"].values
-
 
     rfm_cluster_summary = (
         rfm_clean
@@ -144,10 +186,6 @@ def load_data():
 
 @st.cache_data
 def build_rfm_chart_data(rfm: pd.DataFrame) -> pd.DataFrame:
-    """
-    Replica exatamente o snippet do gráfico KDE+Boxenplot:
-    winsorize → StandardScaler → DBSCAN(eps=1.5, min_samples=10) → cluster_nome
-    """
     def winsorize_s(series, lower=0.01, upper=0.99):
         return series.clip(lower=series.quantile(lower), upper=series.quantile(upper))
 
@@ -171,7 +209,6 @@ def build_rfm_chart_data(rfm: pd.DataFrame) -> pd.DataFrame:
 
 rfm, rfm_clean, rfm_pca_clean, rfm_cluster_summary = load_data()
 
-
 cmap       = plt.cm.magma
 COLOR_VIP  = cmap(0.95)
 COLOR_REG  = cmap(0.50)
@@ -183,7 +220,6 @@ PALETTE = {
     "Clientes de Risco":  COLOR_RISK,
 }
 
-
 total    = len(rfm_clean)
 n_vip    = (rfm_clean["cluster"] == "VIP").sum()
 n_reg    = (rfm_clean["cluster"] == "Clientes Regulares").sum()
@@ -191,6 +227,10 @@ n_risk   = (rfm_clean["cluster"] == "Clientes de Risco").sum()
 rec_mean = round(rfm_clean["Recency"].mean(), 1)
 frq_mean = round(rfm_clean["Frequency"].mean(), 1)
 mon_mean = round(rfm_clean["Monetary"].mean(), 2)
+
+# Helper: format number with dots as thousand separator (PT-BR style)
+def fmt_pt(n):
+    return f"{n:,}".replace(",", ".")
 
 st.markdown("""
 <div class="rfm-box">
@@ -206,19 +246,19 @@ st.markdown("""
 st.markdown('<div class="section-header">Visão geral da base</div>', unsafe_allow_html=True)
 c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 with c1:
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Total de clientes</div><div class="metric-value">{total:,}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Total de clientes</div><div class="metric-value">{fmt_pt(total)}</div></div>', unsafe_allow_html=True)
 with c2:
-    st.markdown(f'<div class="metric-card vip"><div class="metric-label">Clientes VIP</div><div class="metric-value">{n_vip}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card vip"><div class="metric-label">Clientes VIP</div><div class="metric-value">{fmt_pt(n_vip)}</div></div>', unsafe_allow_html=True)
 with c3:
-    st.markdown(f'<div class="metric-card regular"><div class="metric-label">Clientes Regulares</div><div class="metric-value">{n_reg:,}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card regular"><div class="metric-label">Clientes Regulares</div><div class="metric-value">{fmt_pt(n_reg)}</div></div>', unsafe_allow_html=True)
 with c4:
-    st.markdown(f'<div class="metric-card risk"><div class="metric-label">Clientes de Risco</div><div class="metric-value">{n_risk:,}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card risk"><div class="metric-label">Clientes de Risco</div><div class="metric-value">{fmt_pt(n_risk)}</div></div>', unsafe_allow_html=True)
 with c5:
     st.markdown(f'<div class="metric-card"><div class="metric-label">Recência média</div><div class="metric-value">{rec_mean}d</div></div>', unsafe_allow_html=True)
 with c6:
     st.markdown(f'<div class="metric-card"><div class="metric-label">Freq. média</div><div class="metric-value">{frq_mean}x</div></div>', unsafe_allow_html=True)
 with c7:
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Receita média</div><div class="metric-value">{mon_mean:,.0f}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Receita média</div><div class="metric-value">{fmt_pt(int(mon_mean))}</div></div>', unsafe_allow_html=True)
 
 # ── Distribuições (rfm completo, com winsorize) ──
 st.markdown('<div class="section-header">Distribuição RFM (winsorizado)</div>', unsafe_allow_html=True)
@@ -230,11 +270,43 @@ rfm_w = rfm.copy()
 for col in ["Recency", "Frequency", "Monetary"]:
     rfm_w[col] = winsorize(rfm[col])
 
+# Distribution data for the boxes
+FREQ_DIST = [
+    ("0 – 5",   75.36),
+    ("5 – 10",  16.69),
+    ("10 – 15+", 100 - 75.36 - 16.69),
+]
+RECENCY_DIST = [
+    ("0 – 50",    48.88),
+    ("50 – 100",  19.54),
+    ("100 – 150+", 100 - 48.88 - 19.54),
+]
+MONETARY_DIST = [
+    ("0 – 2.000",      79.63),
+    ("2.000 – 4.000",  12.04),
+    ("4.000 – 6.000+", 100 - 79.63 - 12.04),
+]
+
+def dist_box_html(title, rows):
+    html = f'<div class="dist-box"><div class="dist-box-title">Distribuição — {title}</div>'
+    for label, pct in rows:
+        bar_w = int(pct)
+        html += f"""
+        <div class="dist-row">
+            <span class="dist-label">{label}</span>
+            <div class="dist-bar-wrap">
+                <div class="dist-bar" style="width:{bar_w}%;"></div>
+            </div>
+            <span class="dist-pct">{pct:.2f}%</span>
+        </div>"""
+    html += '</div>'
+    return html
+
 h1, h2, h3 = st.columns(3)
-for col_, ax_col, color_, label_ in [
-    ("Recency",   h1, cmap(0.95), "Recência"),
-    ("Frequency", h2, cmap(0.50), "Frequência"),
-    ("Monetary",  h3, cmap(0.15), "Monetário"),
+for col_, ax_col, color_, label_, dist_title, dist_rows in [
+    ("Frequency", h1, cmap(0.95), "Frequência",  "Frequency",  FREQ_DIST),
+    ("Recency",   h2, cmap(0.50), "Recência",    "Recency",    RECENCY_DIST),
+    ("Monetary",  h3, cmap(0.15), "Monetário",   "Monetary",   MONETARY_DIST),
 ]:
     fig, ax = plt.subplots(figsize=(4.5, 3.2))
     fig.patch.set_facecolor("white")
@@ -250,6 +322,7 @@ for col_, ax_col, color_, label_ in [
     plt.tight_layout()
     with ax_col:
         st.pyplot(fig, use_container_width=True)
+        st.markdown(dist_box_html(dist_title, dist_rows), unsafe_allow_html=True)
     plt.close()
 
 st.markdown("""
@@ -338,7 +411,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-
 st.markdown('<div class="section-header">Distribuição RFM por cluster (sem outliers)</div>', unsafe_allow_html=True)
 
 rfm_chart = build_rfm_chart_data(rfm)
@@ -420,7 +492,7 @@ st.markdown("""
     Clientes de Risco (roxo claro) no meio (~20–100 dias); Regulares (roxo escuro) com recência alta (~150–400 dias), ou seja, estão há muito tempo sem comprar.
   </p>
   <p>
-    <strong>Frequency:</strong> VIP (branco)  com frequência alta (~25–35 compras); Clientes de Risco (roxo claro) baixos (~1–5);
+    <strong>Frequency:</strong> VIP (branco) com frequência alta (~25–35 compras); Clientes de Risco (roxo claro) baixos (~1–5);
     Regulares (roxo escuro) muito baixos (~1–3), mostrando pouco engajamento.
   </p>
   <p>
